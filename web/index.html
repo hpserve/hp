@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HP Enterprise - Service Booking</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>HP ENTERPRISE</h1>
+      <p>All-in-One Service Platform</p>
+    </header>
+
+    <main>
+      <section class="booking-form">
+        <h2>Book a Service</h2>
+        <form id="bookingForm">
+          <div class="form-group">
+            <label>Name *</label>
+            <input type="text" id="customerName" required>
+          </div>
+
+          <div class="form-group">
+            <label>Mobile *</label>
+            <input type="tel" id="mobile" required>
+          </div>
+
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email">
+          </div>
+
+          <div class="form-group">
+            <label>Company</label>
+            <input type="text" id="company">
+          </div>
+
+          <div class="form-group">
+            <label>Department *</label>
+            <select id="department" required>
+              <option value="">Select Department</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Service *</label>
+            <select id="service" required>
+              <option value="">Select Service</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Work Date *</label>
+            <input type="date" id="workDate" required>
+          </div>
+
+          <div class="form-group">
+            <label>Work Time</label>
+            <input type="time" id="workTime">
+          </div>
+
+          <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="location" placeholder="Pickup or work location">
+          </div>
+
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea id="notes" rows="3"></textarea>
+          </div>
+
+          <div class="pricing-summary">
+            <h3>Pricing</h3>
+            <p>Subtotal: <span id="subtotal">₹0</span></p>
+            <p>GST (18%): <span id="gstAmount">₹0</span></p>
+            <p class="total">Total: <span id="total">₹0</span></p>
+          </div>
+
+          <button type="submit" class="btn-primary">Submit Booking</button>
+        </form>
+      </section>
+
+      <section class="booking-status" id="bookingStatus" style="display:none;">
+        <h2>Booking Confirmation</h2>
+        <div id="statusContent"></div>
+        <button onclick="location.reload()" class="btn-primary">Book Another Service</button>
+      </section>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 HP Enterprise. Safe • Compliant • Reliable • PAN India</p>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/module.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

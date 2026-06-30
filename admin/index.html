@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HP Enterprise - Admin Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="admin-container">
+    <header class="admin-header">
+      <div class="header-content">
+        <h1>HP Enterprise Admin Panel</h1>
+        <div class="user-menu">
+          <span id="userName">Admin</span>
+          <button id="logoutBtn" class="btn-small">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <nav class="admin-nav">
+      <button class="nav-btn active" data-section="orders">📋 Orders</button>
+      <button class="nav-btn" data-section="enquiries">💬 Enquiries</button>
+      <button class="nav-btn" data-section="settings">⚙️ Settings</button>
+    </nav>
+
+    <main class="admin-main">
+      <!-- Orders Section -->
+      <section id="orders" class="section active">
+        <div class="section-header">
+          <h2>Bookings & Orders</h2>
+          <div class="filters">
+            <select id="statusFilter">
+              <option value="">All Status</option>
+              <option value="New">New</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            <input type="search" id="searchOrders" placeholder="Search by order ID or customer name...">
+          </div>
+        </div>
+
+        <div class="orders-list" id="ordersList">
+          <p class="loading">Loading orders...</p>
+        </div>
+      </section>
+
+      <!-- Enquiries Section -->
+      <section id="enquiries" class="section">
+        <div class="section-header">
+          <h2>Customer Enquiries</h2>
+          <div class="filters">
+            <select id="enquiryStatusFilter">
+              <option value="">All Status</option>
+              <option value="New">New</option>
+              <option value="Replied">Replied</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="enquiries-list" id="enquiriesList">
+          <p class="loading">Loading enquiries...</p>
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings" class="section">
+        <h2>Business Settings</h2>
+        <div class="settings-form">
+          <div class="form-group">
+            <label>Business Name</label>
+            <input type="text" id="businessName">
+          </div>
+          <div class="form-group">
+            <label>GST IN</label>
+            <input type="text" id="gstin">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" id="phone">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="email">
+          </div>
+          <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Order Detail Modal -->
+    <div id="orderModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+        <h2>Order Details</h2>
+        <div id="orderDetail"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeOrderModal()">Close</button>
+          <button class="btn-primary" onclick="saveOrderChanges()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/module.js"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script src="orders.js"></script>
+  <script src="enquiries.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
