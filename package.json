@@ -2,15 +2,19 @@
   "name": "hpserve-realtime-sync",
   "version": "1.0.0",
   "description": "Real-time order sync between website and admin panel",
-  "main": "index.js",
   "scripts": {
-    "dev:web": "cd web && python -m http.server 3000",
-    "dev:admin": "cd admin && python -m http.server 3001",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "db:setup": "supabase db push",
     "db:pull": "supabase db pull",
     "db:reset": "supabase db reset"
   },
   "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "@supabase/supabase-js": "^2.38.4"
   },
   "devDependencies": {
