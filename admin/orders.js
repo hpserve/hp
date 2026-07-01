@@ -1,27 +1,46 @@
 // Orders Management
 let allOrders = [];
 let currentOrderId = null;
+let orderListenerInitialized = false;
+let lastOrdersRefresh = 0;
+const POLL_INTERVAL = 15000; // 15 seconds fallback poll
 
 // Load orders on init
 window.addEventListener('DOMContentLoaded', async () => {
+  console.log('📋 Orders module initialized');
   await loadOrders();
   setupOrderListener();
+  setupPollingFallback();
 });
 
-// Load all orders from Supabase
+// Load all orders from backend API (with service role auth)
 async function loadOrders() {
   try {
-    const { data: orders, error } = await supabase
-      .from('hpe_bookings')
-      .select('*')
-      .order('created_at', { ascending: false });
+    console.log('🔄 Fetching orders from API...');
+    
+    const response = await fetch('/api/admin/orders', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
-    if (error) throw error;
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
 
-    allOrders = orders || [];
-    displayOrders(allOrders);
+    const result = await response.json();
+    
+    if (result.ok && result.orders) {
+      allOrders = result.orders;
+      lastOrdersRefresh = Date.now();
+      console.log(`✅ Loaded ${allOrders.length} orders`);
+      displayOrders(allOrders);
+    } else {
+      throw new Error(result.error || 'Failed to load orders');
+    }
   } catch (error) {
-    console.error('Error loading orders:', error);
+    console.error('❌ Error loading orders:', error);
     showAlert(`Error loading orders: ${error.message}`, 'error');
   }
 }
@@ -43,9 +62,9 @@ function displayOrders(orders) {
         <p><strong>Mobile:</strong> ${order.mobile}</p>
         <p><strong>Service:</strong> ${order.service_name || 'N/A'}</p>
         <p><strong>Date:</strong> ${order.work_date || 'N/A'}</p>
-        <span class="order-status status-${order.booking_status.toLowerCase().replace(' ', '-')}">${order.booking_status}</span>
+        <span class="order-status status-${(order.booking_status || 'new').toLowerCase().replace(/\s+/g, '-')}">${order.booking_status || 'New'}</span>
       </div>
-      <div class="order-amount">₹${order.grand_total.toFixed(2)}</div>
+      <div class="order-amount">₹${(order.grand_total || 0).toFixed(2)}</div>
     </div>
   `).join('');
 }
@@ -55,7 +74,10 @@ function openOrderModal(orderId) {
   currentOrderId = orderId;
   const order = allOrders.find(o => o.id === orderId);
   
-  if (!order) return;
+  if (!order) {
+    console.error('Order not found:', orderId);
+    return;
+  }
 
   const detailHTML = `
     <div class="form-group">
@@ -76,7 +98,7 @@ function openOrderModal(orderId) {
     </div>
     <div class="form-group">
       <label>Service</label>
-      <input type="text" id="modalService" value="${order.service_name}">
+      <input type="text" id="modalService" value="${order.service_name || ''}">
     </div>
     <div class="form-group">
       <label>Work Date</label>
@@ -102,7 +124,7 @@ function openOrderModal(orderId) {
     </div>
     <div class="form-group">
       <label>Total Amount</label>
-      <input type="text" value="₹${order.grand_total.toFixed(2)}" disabled>
+      <input type="text" value="₹${(order.grand_total || 0).toFixed(2)}" disabled>
     </div>
   `;
   
@@ -116,12 +138,13 @@ function closeOrderModal() {
   currentOrderId = null;
 }
 
-// Save order changes
+// Save order changes via API
 async function saveOrderChanges() {
   if (!currentOrderId) return;
 
   try {
     const updates = {
+      id: currentOrderId,
       customer_name: document.getElementById('modalCustomerName').value,
       mobile: document.getElementById('modalMobile').value,
       email: document.getElementById('modalEmail').value,
@@ -129,81 +152,131 @@ async function saveOrderChanges() {
       work_date: document.getElementById('modalWorkDate').value,
       booking_status: document.getElementById('modalStatus').value,
       assigned_staff: document.getElementById('modalAssignedStaff').value,
-      admin_notes: document.getElementById('modalAdminNotes').value,
-      updated_at: new Date().toISOString()
+      admin_notes: document.getElementById('modalAdminNotes').value
     };
 
-    const { data, error } = await supabase
-      .from('hpe_bookings')
-      .update(updates)
-      .eq('id', currentOrderId)
-      .select();
+    const response = await fetch('/api/admin/orders', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updates)
+    });
 
-    if (error) throw error;
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
 
-    console.log('✅ Order updated:', data[0]);
-    showAlert('Order updated successfully!', 'success');
+    const result = await response.json();
     
-    // Reload orders
-    await loadOrders();
-    closeOrderModal();
+    if (result.ok) {
+      console.log('✅ Order updated:', result.order);
+      showAlert('Order updated successfully!', 'success');
+      
+      // Reload orders
+      await loadOrders();
+      closeOrderModal();
+    } else {
+      throw new Error(result.error || 'Failed to update order');
+    }
   } catch (error) {
-    console.error('Error saving order:', error);
+    console.error('❌ Error saving order:', error);
     showAlert(`Error: ${error.message}`, 'error');
   }
 }
 
-// Setup real-time listener for new orders
+// Setup real-time listener for new orders with error handling
 function setupOrderListener() {
-  supabase
-    .channel('hpe_bookings_channel')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'hpe_bookings'
-      },
-      (payload) => {
-        console.log('📢 Order update received:', payload);
-        
-        if (payload.eventType === 'INSERT') {
-          console.log('🆕 NEW ORDER:', payload.new);
-          allOrders.unshift(payload.new);
-          displayOrders(allOrders);
-          showAlert(`🔔 New order: ${payload.new.order_id} from ${payload.new.customer_name}`, 'success');
-        } else if (payload.eventType === 'UPDATE') {
-          console.log('✏️ ORDER UPDATED:', payload.new);
-          const index = allOrders.findIndex(o => o.id === payload.new.id);
-          if (index !== -1) {
-            allOrders[index] = payload.new;
+  try {
+    if (!supabase) {
+      console.warn('⚠️ Supabase not initialized, real-time updates disabled');
+      return;
+    }
+
+    supabase
+      .channel('hpe_bookings_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'hpe_bookings'
+        },
+        (payload) => {
+          console.log('📢 Real-time update received:', payload.eventType);
+          
+          if (payload.eventType === 'INSERT') {
+            console.log('🆕 NEW ORDER:', payload.new);
+            allOrders.unshift(payload.new);
+            displayOrders(allOrders);
+            showAlert(`🔔 New order: ${payload.new.order_id} from ${payload.new.customer_name}`, 'success');
+          } else if (payload.eventType === 'UPDATE') {
+            console.log('✏️ ORDER UPDATED:', payload.new);
+            const index = allOrders.findIndex(o => o.id === payload.new.id);
+            if (index !== -1) {
+              allOrders[index] = payload.new;
+              displayOrders(allOrders);
+            }
+          } else if (payload.eventType === 'DELETE') {
+            console.log('🗑️ ORDER DELETED:', payload.old.id);
+            allOrders = allOrders.filter(o => o.id !== payload.old.id);
             displayOrders(allOrders);
           }
-        } else if (payload.eventType === 'DELETE') {
-          console.log('🗑️ ORDER DELETED:', payload.old.id);
-          allOrders = allOrders.filter(o => o.id !== payload.old.id);
-          displayOrders(allOrders);
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time listener connected');
+          orderListenerInitialized = true;
+        } else if (status === 'CLOSED') {
+          console.warn('⚠️ Real-time listener closed');
+          orderListenerInitialized = false;
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Real-time listener error');
+          orderListenerInitialized = false;
+        }
+      });
+  } catch (error) {
+    console.error('❌ Error setting up real-time listener:', error);
+  }
+}
+
+// Polling fallback if real-time listener fails
+function setupPollingFallback() {
+  setInterval(() => {
+    const timeSinceLastRefresh = Date.now() - lastOrdersRefresh;
+    
+    // If no refresh for POLL_INTERVAL ms AND listener not initialized, poll
+    if (timeSinceLastRefresh > POLL_INTERVAL && !orderListenerInitialized) {
+      console.log('🔄 Polling fallback: refreshing orders...');
+      loadOrders();
+    }
+  }, POLL_INTERVAL / 2);
 }
 
 // Filter orders by status
-document.getElementById('statusFilter')?.addEventListener('change', (e) => {
-  const status = e.target.value;
-  const filtered = status ? allOrders.filter(o => o.booking_status === status) : allOrders;
-  displayOrders(filtered);
-});
+document.addEventListener('DOMContentLoaded', () => {
+  const statusFilter = document.getElementById('statusFilter');
+  if (statusFilter) {
+    statusFilter.addEventListener('change', (e) => {
+      const status = e.target.value;
+      const filtered = status ? allOrders.filter(o => o.booking_status === status) : allOrders;
+      displayOrders(filtered);
+    });
+  }
 
-// Search orders
-document.getElementById('searchOrders')?.addEventListener('input', (e) => {
-  const query = e.target.value.toLowerCase();
-  const filtered = allOrders.filter(o => 
-    o.order_id.toLowerCase().includes(query) ||
-    o.customer_name.toLowerCase().includes(query)
-  );
-  displayOrders(filtered);
+  // Search orders
+  const searchOrders = document.getElementById('searchOrders');
+  if (searchOrders) {
+    searchOrders.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const filtered = allOrders.filter(o => 
+        o.order_id.toLowerCase().includes(query) ||
+        o.customer_name.toLowerCase().includes(query)
+      );
+      displayOrders(filtered);
+    });
+  }
 });
 
 function showAlert(message, type) {
@@ -212,7 +285,8 @@ function showAlert(message, type) {
   alertDiv.textContent = message;
   
   const main = document.querySelector('.admin-main');
-  main.insertAdjacentElement('afterbegin', alertDiv);
-  
-  setTimeout(() => alertDiv.remove(), 5000);
+  if (main) {
+    main.insertAdjacentElement('afterbegin', alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+  }
 }
